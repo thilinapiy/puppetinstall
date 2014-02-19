@@ -27,14 +27,17 @@ set -e
 
 # General commands
 MV=`which mv`
+CP=`which cp`
 ID=`which id`
 CAT=`which cat`
 CUT=`which cut`
+AWK=`which awk`
 SED=`which sed`
+WGET=`which wget`
 DATE=`which date`
 ECHO=`which echo`
+UNAME=`which uname`
 HOSTNAME=`which hostname`
-WGET=`which wget`
 
 # Parameters 
 MASTER=0
@@ -43,6 +46,7 @@ MASTERIP=""
 NODENAME=""
 DOMAIN=""
 OSDIST=""
+TIMEZONE="Asia/Colombo"
 
 # Execute bashtrap function when user press [Ctrl]+[c]
 trap bashtrap INT
@@ -106,14 +110,11 @@ function print_error(){
 function get_distro(){
 # Check for distribution
     print_message "Checking for the distribution ... "
-    if [ -f /etc/lsb-release ];then
-        OSDIST=$(lsb_release -si)
-        print_ok
-    elif [ -f /etc/debian_version ]; then
+    if [ -f /etc/debian_version ]; then
         OSDIST="Debian"
         print_ok
     elif [ -f /etc/redhat-release ]; then
-        OSDIST=$(${CAT} /etc/redhat-release | ${CUT} -f 1 -d " ")
+        OSDIST="RedHat"
         print_ok
     else
         OSDIST="unknown"
@@ -166,7 +167,7 @@ function get_confirmation(){
     ${ECHO} -e "========================================================================"
 
     read input
-    if [ ${VERBOSE} -eq o ]; then
+    if [ ${VERBOSE} -eq 0 ]; then
         ${ECHO} -e "Installation started. Please wait ... "
     fi    
 }
@@ -196,9 +197,13 @@ function install_on_ubuntu(){
 #Ubuntu/Debian specific commands.
     APT=`which apt-get`
     NTPDEBIAN=`which ntpdate-debian`
+    DPKG=`which dpkg`
+    DPKGRECONF=`which dpkg-reconfigure`
 
-# Do a Time sync
+# Do a time sync
     print_message "Updating system time ... "
+    ${ECHO} "${TIMEZONE}" > /etc/timezone && : || print_error "Failed to add timezone"
+    ${DPKGRECONF} --frontend noninteractive tzdata  && : || print_error "Failed to reconfigure timezone"
     ${NTPDEBIAN} && print_ok || print_error "Failed to synchronize time. "
 
 # Install puppet repository
@@ -209,7 +214,7 @@ function install_on_ubuntu(){
         ${WGET} -q http://apt.puppetlabs.com/puppetlabs-release-precise.deb && print_ok || print_error "Failed to download the repository file from puppetlabs."
     fi
     print_message "Installing puppet repository ... "
-    dpkg -i puppetlabs-release-precise.deb && print_ok || print_error "Failed to download the repository file from puppetlabs."
+    ${DPKG} -i puppetlabs-release-precise.deb && print_ok || print_error "Failed to install the repository file of puppetlabs."
 
 # Update repository list
     print_message "Updating system repository list ... "
@@ -229,7 +234,7 @@ if [ ${MASTER} -eq 1 ]; then
         ${ECHO} -e "*.${DOMAIN}" > /etc/puppet/autosign.conf && : || print_error "Failed to configure puppet master's '/etc/puppet/autosign.conf'."
         ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet master's '/etc/puppet/puppet.conf'."
         print_message "Restarting puppet master service ... " 
-        /etc/init.d/puppetmaster restart && print_ok || print_error "Failed to restart puppet master."
+        /etc/init.d/puppetmaster restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet master."
     else
 # Install puppet agent
         print_message "Installing puppet agent ... "
@@ -238,7 +243,52 @@ if [ ${MASTER} -eq 1 ]; then
         ${SED} -i 's/START=no/START=yes/' /etc/default/puppet && : || print_error "Failed to configure puppet agent's '/etc/default/puppet'."
         ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
         print_message "Restarting puppet agent service ... "
-        /etc/init.d/puppet restart && print_ok || print_error "Failed to restart puppet agent."
+        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+fi
+}
+
+function install_on_redhat(){
+# Install puppet master and agent on redhat base systems
+    YUM=`which yum`
+    RPM=`which rpm`
+    EL_VERSION=$( ${UNAME} -r | ${AWK} -F "el" '{print $2}' | ${AWK} -F "." '{print $1}') 
+    REPO_URL="http://yum.puppetlabs.com/puppetlabs-release-el-${EL_VERSION}.noarch.rpm"
+
+# Do a time sync
+    print_message "Updating system time ... "
+    which ntpdate && : || (echo "Installing ntpdate ..."; ${YUM} install -y -q ntpdate)
+    NTPDATE="ntpdate"
+    ${CP} /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && : || print_error "Failed to reconfigure timezone"
+    ${NTPDATE} pool.ntp.org && print_ok || print_error "Failed to synchronize time. "
+
+# Install puppet repository
+    print_message "Downloading repo file from puppetlabs ... "
+    if [ ${VERBOSE} -eq 1 ]; then
+        ${WGET} ${REPO_URL} && print_ok || print_error "Failed to download the repository file from puppetlabs."
+    else
+        ${WGET} -q ${REPO_URL} && print_ok || print_error "Failed to download the repository file from puppetlabs."
+    fi
+    print_message "Installing puppet repository ... "
+    ${RPM} -i puppetlabs-release-*.rpm && print_ok || print_error "Failed to install puppetlabs repository."
+
+if [ ${MASTER} -eq 1 ]; then
+# Install puppetmaster
+        print_message "Installing puppet server ... "
+        ${YUM} install puppet-server -q -y && print_ok || print_error "Failed to install puppet server."
+#configure puppetmaster
+        print_message "Configuring puppet server ... "
+        ${ECHO} -e "*.${DOMAIN}" > /etc/puppet/autosign.conf && : || print_error "Failed to configure puppet server's '/etc/puppet/autosign.conf'."
+        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet server's '/etc/puppet/puppet.conf'."
+        print_message "Restarting puppet server service ... " 
+        /etc/init.d/puppetmaster restart && ${ECHO} -e "Installation completed successfully. \nOpen port 8140 via IPtables." || print_error "Failed to restart puppet server."
+    else
+# Install puppet agent
+        print_message "Installing puppet agent ... "
+        ${YUM} install puppet -y && print_ok || print_error "Failed to install puppet agent."
+        print_message "Configuring puppet agent ... "
+        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
+        print_message "Restarting puppet agent service ... "
+        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
 fi
 }
 
@@ -302,12 +352,16 @@ get_distro
 get_confirmation
 
 case ${OSDIST} in
-    [Uu]buntu|[Dd]ebian)
+    Debian)
         update_host
         install_on_ubuntu
         ;;
-    [Rr]edhat|[Cc]ent[Oo][Ss])
-        print_error "Redhat base system support will be available in a future release."
+    RedHat)
+        update_host
+        install_on_redhat
+        ;;
+    Fedora)
+        print_error "Fedora is not recommended. Try to use CentOS."
         ;;
     *)
         print_error "System was not identified."
