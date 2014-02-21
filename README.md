@@ -27,13 +27,13 @@ Either long or short options are allowed.
     
 #### Puppet Master
 
-    $ sudo puppetinstall -m -d example.com
+    $ sudo bash puppetinstall -m -d example.com
       
 This will install puppet master on __example.com__ domain.
 
 #### Puppet Agent
 
-    $ sudo puppetinstall -n node001 -d example.com -s 192.168.122.1
+    $ sudo bash puppetinstall -n node001 -d example.com -s 192.168.122.1
       
 This will install puppet agent on __example.com__ domain.
 Agent hostname will be __node001.example.com__ and will point
