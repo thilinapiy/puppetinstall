@@ -69,7 +69,7 @@ function print_usage(){
     ${ECHO} -e "                          eg: "
     ${ECHO} -e "                          if a serrver is: server23.dc1.example.com"
     ${ECHO} -e "                          your domain must be : dc1.example.com" 
-    ${ECHO} -e "    -s, --serverip <ip>   IP address of the puppetmaster server."
+    ${ECHO} -e "    -s, --serverip <ip>   IP address of the puppet master server."
     ${ECHO} -e "                          This IP address will added to the /etc/hosts file."
     ${ECHO} -e "    -h, --help            This will print this message."
     ${ECHO} -e "    -v, --verbose         This will activate verbose mode."
@@ -225,10 +225,10 @@ function install_on_ubuntu(){
     fi
 
 if [ ${MASTER} -eq 1 ]; then
-# Install puppetmaster
+# Install puppet master
         print_message "Installing puppet master ... "
         ${APT} install puppetmaster -y && print_ok || print_error "Failed to install puppet master."
-#configure puppetmaster
+#configure puppet master
         print_message "Configuring puppet master ... "
         ${SED} -i 's/START=no/START=yes/' /etc/default/puppetmaster && : || print_error "Failed to configure puppet master's '/etc/default/puppetmaster'."
         ${ECHO} -e "*.${DOMAIN}" > /etc/puppet/autosign.conf && : || print_error "Failed to configure puppet master's '/etc/puppet/autosign.conf'."
@@ -272,10 +272,10 @@ function install_on_redhat(){
     ${RPM} -i puppetlabs-release-*.rpm && print_ok || print_error "Failed to install puppetlabs repository."
 
 if [ ${MASTER} -eq 1 ]; then
-# Install puppetmaster
+# Install puppet master
         print_message "Installing puppet server ... "
         ${YUM} install puppet-server -q -y && print_ok || print_error "Failed to install puppet server."
-#configure puppetmaster
+#configure puppet master
         print_message "Configuring puppet server ... "
         ${ECHO} -e "*.${DOMAIN}" > /etc/puppet/autosign.conf && : || print_error "Failed to configure puppet server's '/etc/puppet/autosign.conf'."
         ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet server's '/etc/puppet/puppet.conf'."
@@ -331,7 +331,7 @@ done
 check_user
 
 if [ ${MASTER} -eq 1 ]; then
-    NODENAME="puppetmaster"
+    NODENAME="puppet"
     [ -z ${MASTERIP} ] && MASTERIP="127.0.0.1" || :
 fi
 
@@ -342,7 +342,7 @@ if [ -z ${DOMAIN} ] || [ -z ${MASTERIP} ] || [ -z ${NODENAME} ]; then
 fi
 
 # Set the hostname
-MASTERHOSTNAME="puppetmaster.${DOMAIN}"
+MASTERHOSTNAME="puppet.${DOMAIN}"
 NODEHOSTNAME="${NODENAME}.${DOMAIN}"
 
 # Check puppet exist on the system
