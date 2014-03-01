@@ -7,7 +7,7 @@
 # last updated on : 2014-02-12
 # 
 #
-# Copyright [2014] [Thilina Piyasundara]
+# Copyright 2014 Thilina Piyasundara
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ MASTERIP=""
 NODENAME=""
 DOMAIN=""
 OSDIST=""
-TIMEZONE="America/New_York"
+TIMEZONE="Asia/Colombo"
 
 # Execute bashtrap function when user press [Ctrl]+[c]
 trap bashtrap INT
@@ -75,10 +75,10 @@ function print_usage(){
     ${ECHO} -e "    -v, --verbose         This will activate verbose mode."
     ${ECHO} -e ""
     ${ECHO} -e "Examples: "
-    ${ECHO} -e "    sudo puppetinstall -m -d example.com"
+    ${ECHO} -e "    sudo bash puppetinstall -m -d example.com"
     ${ECHO} -e "        This will install puppet master on example.com domain."
     ${ECHO} -e ""
-    ${ECHO} -e "    sudo puppetinstall -n node001 -d example.com -s 192.168.122.1"
+    ${ECHO} -e "    sudo bash puppetinstall -n node001 -d example.com -s 192.168.122.1"
     ${ECHO} -e "        This will install puppet agent on example.com domain. "
     ${ECHO} -e "        Agent hostname will be node001.example.com and will point"
     ${ECHO} -e "        to the puppet master on 192.168.122.1 server."
