@@ -42,6 +42,7 @@ HOSTNAME=`which hostname`
 # Parameters 
 MASTER=0
 VERBOSE=0
+FORCEYES=0
 MASTERIP=""
 NODENAME=""
 DOMAIN=""
@@ -56,26 +57,26 @@ function print_usage(){
     ${ECHO} -e "Thilina Piyasundara. <mail@thilina.org>"    
     ${ECHO} -e ""
     ${ECHO} -e "Usage: "
-    ${ECHO} -e "    puppetinstall [-m|--master or -n|--node <node hostname>] -d <domain>"
-    ${ECHO} -e "            -s <puppet master server ip> -t <timezone>"
+    ${ECHO} -e "    puppetinstall -m|-n <node hostname> -d <domain>"
+    ${ECHO} -e "            [-s <puppet master server ip>] [-t <timezone>]"
     ${ECHO} -e ""
     ${ECHO} -e "Commands:"
     ${ECHO} -e "Either long or short options are allowed."
-    ${ECHO} -e "    -m, --master          Install puppet master on the system."
-    ${ECHO} -e "    -n, --node <hostname> Install puppet agent on the system."
-    ${ECHO} -e "                          If you use -m tag with this, -n tag will be ignored."
-    ${ECHO} -e "    -d, --domain <domain> Domain name of the environment. This will act as a"
-    ${ECHO} -e "                          prefix to all the servers of the domain."
-    ${ECHO} -e "                          eg: "
-    ${ECHO} -e "                          if a serrver is: server23.dc1.example.com"
-    ${ECHO} -e "                          your domain must be : dc1.example.com" 
-    ${ECHO} -e "    -s, --serverip <ip>   IP address of the puppet master server."
-    ${ECHO} -e "                          This IP address will added to the /etc/hosts file."
-    ${ECHO} -e "    -t                    This will set the system timezone. Default is Etc/UTC"
-    ${ECHO} -e "                          eg: "
-    ${ECHO} -e "                          For Sri Lanka its : Asia/Colombo"
-    ${ECHO} -e "    -h, --help            This will print this message."
-    ${ECHO} -e "    -v, --verbose         This will activate verbose mode."
+    ${ECHO} -e "    -m              Install puppet master on the system."
+    ${ECHO} -e "    -n <hostname>   Install puppet agent on the system."
+    ${ECHO} -e "                    If you use -m tag with this, -n tag will be ignored."
+    ${ECHO} -e "    -d <domain>     Domain name of the environment. This will act as a"
+    ${ECHO} -e "                    prefix to all the servers of the domain."
+    ${ECHO} -e "                    eg: "
+    ${ECHO} -e "                    if a server is: server23.dc1.example.com"
+    ${ECHO} -e "                    your domain must be : dc1.example.com" 
+    ${ECHO} -e "    -s <ip>         IP address of the puppet master server."
+    ${ECHO} -e "                    This IP address will added to the /etc/hosts file."
+    ${ECHO} -e "    -t <timezone>   This will set the system timezone. Default is Etc/UTC"
+    ${ECHO} -e "                    eg: "
+    ${ECHO} -e "                    For Sri Lanka use : Asia/Colombo"
+    ${ECHO} -e "    -h              This will print this message."
+    ${ECHO} -e "    -v              This will activate verbose mode."
     ${ECHO} -e ""
     ${ECHO} -e "Examples: "
     ${ECHO} -e "    sudo bash puppetinstall -m -d example.com"
@@ -172,10 +173,12 @@ function get_confirmation(){
     ${ECHO} -e "========================================================================"
     ${ECHO} -e ""
     ${ECHO} -e "Please check your input and confirm by pressing [Enter] to continue.    "
-    ${ECHO} -e "Or press [Ctrl] + [c] to stop the installationan exit.                  "
-    ${ECHO} -e ""
+    ${ECHO} -en "Or press [Ctrl] + [c] to stop the installationan exit. : "
 
-    read input
+    if [ ${FORCEYES} -eq 0 ]; then
+        read input
+    fi
+
     if [ ${VERBOSE} -eq 0 ]; then
         ${ECHO} -e "Installation started. Please wait ... "
     fi    
@@ -336,29 +339,32 @@ fi
 
 
 # Check all input parameters.
-while getopts ":vhmd:n:s:t: --help --verbose --master --node --domain --serverip" opt; do
+while getopts ":vhmd:n:s:t:y --help" opt; do
     case ${opt} in
         h|--help)
             print_usage
             exit 0
             ;;
-        v|--verbose) 
+        v) 
             VERBOSE=1
             ;;
-        d|--domain)
+        d)
             DOMAIN=${OPTARG}
             ;;
-        n|--node)
+        n)
             NODENAME=${OPTARG}
             ;;
-        m|--master)
+        m)
             MASTER=1
             ;;
-        s|--serverip)
+        s)
             MASTERIP=${OPTARG}
             ;;
         t)
             TIMEZONE=${OPTARG}
+            ;;
+        y)
+            FORCEYES=1
             ;;
         :) 
             ${ECHO} -e "puppetinstall: Option -${OPTARG} requires an argument."
