@@ -46,7 +46,6 @@ MASTERIP=""
 NODENAME=""
 DOMAIN=""
 OSDIST=""
-TIMEZONE="Asia/Colombo"
 
 # Execute bashtrap function when user press [Ctrl]+[c]
 trap bashtrap INT
@@ -57,7 +56,8 @@ function print_usage(){
     ${ECHO} -e "Thilina Piyasundara. <mail@thilina.org>"    
     ${ECHO} -e ""
     ${ECHO} -e "Usage: "
-    ${ECHO} -e "    puppetinstall [-m|--master or -n|--node <node hostname>] -d <domain> -s <puppet master server ip> "
+    ${ECHO} -e "    puppetinstall [-m|--master or -n|--node <node hostname>] -d <domain>"
+    ${ECHO} -e "            -s <puppet master server ip> -t <timezone>"
     ${ECHO} -e ""
     ${ECHO} -e "Commands:"
     ${ECHO} -e "Either long or short options are allowed."
@@ -71,6 +71,9 @@ function print_usage(){
     ${ECHO} -e "                          your domain must be : dc1.example.com" 
     ${ECHO} -e "    -s, --serverip <ip>   IP address of the puppet master server."
     ${ECHO} -e "                          This IP address will added to the /etc/hosts file."
+    ${ECHO} -e "    -t                    This will set the system timezone. Default is Etc/UTC"
+    ${ECHO} -e "                          eg: "
+    ${ECHO} -e "                          For Sri Lanka its : Asia/Colombo"
     ${ECHO} -e "    -h, --help            This will print this message."
     ${ECHO} -e "    -v, --verbose         This will activate verbose mode."
     ${ECHO} -e ""
@@ -155,6 +158,8 @@ function get_confirmation(){
     ${ECHO} -e "This script will replace existing '/etc/hosts' and '/etc/hostname'      "
     ${ECHO} -e "files and will update hostname of the system with following parameter.  "
     ${ECHO} -e ""
+    ${ECHO} -e "Report bugs/issues on https://github.com/thilinapiy/puppetinstall/issues"
+    ${ECHO} -e ""
     ${ECHO} -en "Installing puppet         : "
                         [ ${MASTER} -eq 1 ] && ${ECHO} -e "Master" || ${ECHO} -e "Agent "  
     ${ECHO} -e "Puppet Master FQDN name   : "${MASTERHOSTNAME}
@@ -162,12 +167,13 @@ function get_confirmation(){
     ${ECHO} -e "Domain of the deployment  : "${DOMAIN}
     ${ECHO} -e "FQDN of this node         : "${NODEHOSTNAME}
     ${ECHO} -e "Operating system          : "${OSDIST}
+    ${ECHO} -e "System time zone          : "${TIMEZONE}
+    ${ECHO} -e ""
+    ${ECHO} -e "========================================================================"
     ${ECHO} -e ""
     ${ECHO} -e "Please check your input and confirm by pressing [Enter] to continue.    "
     ${ECHO} -e "Or press [Ctrl] + [c] to stop the installationan exit.                  "
     ${ECHO} -e ""
-    ${ECHO} -e "Report bugs/issues on https://github.com/thilinapiy/puppetinstall/issues"
-    ${ECHO} -e "========================================================================"
 
     read input
     if [ ${VERBOSE} -eq 0 ]; then
@@ -330,7 +336,7 @@ fi
 
 
 # Check all input parameters.
-while getopts ":vhmd:n:s: --help --verbose --master --node --domain --serverip" opt; do
+while getopts ":vhmd:n:s:t: --help --verbose --master --node --domain --serverip" opt; do
     case ${opt} in
         h|--help)
             print_usage
@@ -351,6 +357,9 @@ while getopts ":vhmd:n:s: --help --verbose --master --node --domain --serverip" 
         s|--serverip)
             MASTERIP=${OPTARG}
             ;;
+        t)
+            TIMEZONE=${OPTARG}
+            ;;
         :) 
             ${ECHO} -e "puppetinstall: Option -${OPTARG} requires an argument."
             ${ECHO} -e "puppetinstall: '--help or -h' gives usage information."
@@ -366,6 +375,10 @@ done
 
 # Validate the user
 check_user
+
+if [ -z ${TIMEZONE} ]; then
+    TIMEZONE="Etc/UTC"
+fi
 
 if [ ${MASTER} -eq 1 ]; then
     NODENAME="puppet"
