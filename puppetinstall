@@ -143,7 +143,7 @@ function check_user(){
 function check_for_puppet(){
 # Checking for puppet 
     print_message "Checking for previous puppet installations ... "    
-    if [[ -d '/etc/puppet/' || -d '/var/lib/puppet' ]]; then
+    if [[ -d '/var/lib/puppet' ]]; then
         print_error "Puppet exist on this system."
     else
         print_ok
