@@ -26,18 +26,18 @@
 set -e
 
 # General commands
-MV=`which mv`
-CP=`which cp`
-ID=`which id`
-CAT=`which cat`
-CUT=`which cut`
-AWK=`which awk`
-SED=`which sed`
-WGET=`which wget`
-DATE=`which date`
-ECHO=`which echo`
-UNAME=`which uname`
-HOSTNAME=`which hostname`
+MV=`which mv` && : || (echo "Command 'mv' is not installed."; exit 10;)
+CP=`which cp` && : || (echo "Command 'cp' is not installed."; exit 10;)
+ID=`which id` && : || (echo "Command 'id' is not installed."; exit 10;)
+CAT=`which cat` && : || (echo "Command 'cat' is not installed."; exit 10;)
+CUT=`which cut` && : || (echo "Command 'cut' is not installed."; exit 10;)
+AWK=`which awk` && : || (echo "Command 'awk' is not installed."; exit 10;)
+SED=`which sed` && : || (echo "Command 'sed' is not installed."; exit 10;)
+WGET=`which wget` && : || (echo "Command 'wget' is not installed."; exit 10;)
+DATE=`which date` && : || (echo "Command 'date' is not installed."; exit 10;)
+ECHO=`which echo` && : || (echo "Command 'echo' is not installed."; exit 10;)
+UNAME=`which uname` && : || (echo "Command 'uname' is not installed."; exit 10;)
+HOSTNAME=`which hostname` && : || (echo "Command 'hostname' is not installed."; exit 10;)
 
 # Parameters 
 MASTER=0
@@ -202,16 +202,20 @@ function update_host(){
 # Update hostname
     print_message "Updating hostname ... "
     ${HOSTNAME} ${NODEHOSTNAME} && : || print_error "Failed to update hostname. "
-    ${ECHO} ${NODEHOSTNAME} >/etc/hostname && print_ok || print_error "Failed to update '/etc/hostname' file. "
 }
 
 function install_on_ubuntu(){
 # Install puppet master or agent on a Ubuntu/Debian system
 #Ubuntu/Debian specific commands.
-    APT=`which apt-get`
-    NTPDEBIAN=`which ntpdate-debian`
-    DPKG=`which dpkg`
-    DPKGRECONF=`which dpkg-reconfigure`
+    BC=`which bc` && : || (echo "Command 'bc' is not installed."; exit 10;)
+    GREP=`which grep` && : || (echo "Command 'grep' is not installed."; exit 10;)
+    APT=`which apt-get` && : || (echo "Command 'apt-get' is not installed."; exit 10;)
+    NTPDEBIAN=`which ntpdate-debian` && : || (echo "Command 'ntpdate-debian' is not installed."; exit 10;)
+    DPKG=`which dpkg` && : || (echo "Command 'dpkg' is not installed."; exit 10;)
+    DPKGRECONF=`which dpkg-reconfigure` && : || (echo "Command 'dpkg-reconfigure' is not installed."; exit 10;)
+
+# Update the hostname file.
+    ${ECHO} ${NODEHOSTNAME} >/etc/hostname && print_ok || print_error "Failed to update '/etc/hostname' file. "
 
 # Do a time sync
     print_message "Updating system time ... "
@@ -219,15 +223,21 @@ function install_on_ubuntu(){
     ${DPKGRECONF} --frontend noninteractive tzdata  && : || print_error "Failed to reconfigure timezone"
     ${NTPDEBIAN} && print_ok || print_error "Failed to synchronize time. "
 
-# Install puppet repository
-    print_message "Downloading repo file from puppetlabs ... "
-    if [ ${VERBOSE} -eq 1 ]; then
-        ${WGET} http://apt.puppetlabs.com/puppetlabs-release-precise.deb && print_ok || print_error "Failed to download the repository file from puppetlabs."
-    else
-        ${WGET} -q http://apt.puppetlabs.com/puppetlabs-release-precise.deb && print_ok || print_error "Failed to download the repository file from puppetlabs."
+# Check for version
+    if [ -f /etc/os-release  ]; then
+        OS_VERSION=`${CAT} /etc/os-release | ${GREP} VERSION_ID | ${CUT} -d "=" -f 2 | ${SED} s/\"//g`
+        if [ `${ECHO} "${OS_VERSION}<14.04" | ${BC}` -eq 1 ]; then
+        # Install puppet repository
+            print_message "Downloading repo file from puppetlabs ... "
+            if [ ${VERBOSE} -eq 1 ]; then
+                ${WGET} http://apt.puppetlabs.com/puppetlabs-release-precise.deb && print_ok || print_error "Failed to download the repository file from puppetlabs."
+            else
+                ${WGET} -q http://apt.puppetlabs.com/puppetlabs-release-precise.deb && print_ok || print_error "Failed to download the repository file from puppetlabs."
+            fi
+            print_message "Installing puppet repository ... "
+            ${DPKG} -i puppetlabs-release-precise.deb && print_ok || print_error "Failed to install the repository file of puppetlabs."
+        fi
     fi
-    print_message "Installing puppet repository ... "
-    ${DPKG} -i puppetlabs-release-precise.deb && print_ok || print_error "Failed to install the repository file of puppetlabs."
 
 # Update repository list
     print_message "Updating system repository list ... "
@@ -237,7 +247,7 @@ function install_on_ubuntu(){
         ${APT} update -q=2 && : || print_error "Failed to update repository lists."
     fi
 
-if [ ${MASTER} -eq 1 ]; then
+    if [ ${MASTER} -eq 1 ]; then
 # Install puppet master
         print_message "Installing puppet master ... "
         ${APT} install puppetmaster -y && print_ok || print_error "Failed to install puppet master."
@@ -257,15 +267,18 @@ if [ ${MASTER} -eq 1 ]; then
         ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
         print_message "Restarting puppet agent service ... "
         /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
-fi
+    fi
 }
 
 function install_on_redhat(){
 # Install puppet master and agent on redhat base systems
-    YUM=`which yum`
-    RPM=`which rpm`
+    YUM=`which yum` && : || (echo "Command 'yum' is not installed."; exit 10;)
+    RPM=`which rpm` && : || (echo "Command 'rpm' is not installed."; exit 10;)
     EL_VERSION=$( ${UNAME} -r | ${AWK} -F "el" '{print $2}' | ${AWK} -F "." '{print $1}') 
     REPO_URL="http://yum.puppetlabs.com/puppetlabs-release-el-${EL_VERSION}.noarch.rpm"
+
+# Update the hostname in network file.
+    ${SED} -i s/^HOSTNAME=.*/HOSTNAME=${NODEHOSTNAME}/g /etc/sysconfig/network && print_ok || print_error "Failed to update '/etc/sysconfig/network' file. "
 
 # Do a time sync
     print_message "Updating system time ... "
@@ -284,7 +297,7 @@ function install_on_redhat(){
     print_message "Installing puppet repository ... "
     ${RPM} -i puppetlabs-release-*.rpm && print_ok || print_error "Failed to install puppetlabs repository."
 
-if [ ${MASTER} -eq 1 ]; then
+    if [ ${MASTER} -eq 1 ]; then
 # Install puppet master
         print_message "Installing puppet server ... "
         ${YUM} install puppet-server -q -y && print_ok || print_error "Failed to install puppet server."
@@ -302,13 +315,13 @@ if [ ${MASTER} -eq 1 ]; then
         ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
         print_message "Restarting puppet agent service ... "
         /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
-fi
+    fi
 }
 
 function install_on_sles(){
 # Install puppet master and agent on SLES base systems
-    ZYPPER=`which zypper`
-    RPM=`which rpm`
+    ZYPPER=`which zypper` && : || (echo "Command 'zypper' is not installed."; exit 10;)
+    RPM=`which rpm` && : || (echo "Command 'rpm' is not installed."; exit 10;)
 
 # Do a time sync
     print_message "Updating system time ... "
@@ -317,7 +330,10 @@ function install_on_sles(){
     ${CP} /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && : || print_error "Failed to reconfigure timezone"
     ${NTPDATE} pool.ntp.org && print_ok || print_error "Failed to synchronize time. "
 
-if [ ${MASTER} -eq 1 ]; then
+# Update the hostname file.
+    ${ECHO} ${NODEHOSTNAME} >/etc/HOSTNAME && print_ok || print_error "Failed to update '/etc/HOSTNAME' file. "
+
+    if [ ${MASTER} -eq 1 ]; then
 # Install puppet master
         print_message "Installing puppet server ... "
         ${ZYPPER} install -y puppet-server && print_ok || print_error "Failed to install puppet server."
@@ -335,7 +351,7 @@ if [ ${MASTER} -eq 1 ]; then
         ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
         print_message "Restarting puppet agent service ... "
         /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
-fi
+    fi
 }
 
 
@@ -418,7 +434,7 @@ case ${OSDIST} in
         install_on_redhat
         ;;
     SUSE)
-        #update_host
+        update_host
         install_on_sles
         ;;
     Fedora)
