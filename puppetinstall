@@ -369,7 +369,7 @@ while getopts ":vhmd:n:s:t:y --help" opt; do
             DOMAIN=${OPTARG}
             ;;
         n)
-            NODENAME=${OPTARG}
+            NODENAME="${OPTARG}-${HOSTNAME}"
             ;;
         m)
             MASTER=1
