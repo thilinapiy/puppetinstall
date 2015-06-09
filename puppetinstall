@@ -37,7 +37,7 @@ WGET=`which wget` && : || (echo "Command 'wget' is not installed."; exit 10;)
 DATE=`which date` && : || (echo "Command 'date' is not installed."; exit 10;)
 ECHO=`which echo` && : || (echo "Command 'echo' is not installed."; exit 10;)
 UNAME=`which uname` && : || (echo "Command 'uname' is not installed."; exit 10;)
-HOSTNAME=`which hostname` && : || (echo "Command 'hostname' is not installed."; exit 10;)
+CHOSTNAME=`which hostname` && : || (echo "Command 'hostname' is not installed."; exit 10;)
 
 # Parameters 
 MASTER=0
@@ -201,7 +201,7 @@ function update_host(){
 
 # Update hostname
     print_message "Updating hostname ... "
-    ${HOSTNAME} ${NODEHOSTNAME} && : || print_error "Failed to update hostname. "
+    ${CHOSTNAME} ${NODEHOSTNAME} && : || print_error "Failed to update hostname. "
 }
 
 function install_on_ubuntu(){
