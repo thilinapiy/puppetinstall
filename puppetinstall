@@ -444,15 +444,15 @@ get_confirmation
 
 case ${OSDIST} in
     Debian)
-        update_host
+		if [ ${STANDALONE} -eq 1 ]; then update_host; fi
         install_on_ubuntu
         ;;
     RedHat)
-        update_host
+        if [ ${STANDALONE} -eq 1 ]; then update_host; fi
         install_on_redhat
         ;;
     SUSE)
-        update_host
+        if [ ${STANDALONE} -eq 1 ]; then update_host; fi
         install_on_sles
         ;;
     Fedora)
