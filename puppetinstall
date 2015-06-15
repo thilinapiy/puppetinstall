@@ -367,7 +367,7 @@ function install_on_sles(){
 
 
 # Check all input parameters.
-while getopts ":vhmd:a:n:s:t:y --help" opt; do
+while getopts ":vhmda:n:s:t:y --help" opt; do
     case ${opt} in
         h|--help)
             print_usage
