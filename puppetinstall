@@ -417,20 +417,24 @@ if [ -z ${TIMEZONE} ]; then
     TIMEZONE="Etc/UTC"
 fi
 
-if [ ${MASTER} -eq 1 ]; then
-    NODENAME="puppet"
-    [ -z ${MASTERIP} ] && MASTERIP="127.0.0.1" || :
+if [ ${STANDALONE} -eq 0 ]; then
+
+	if [ ${MASTER} -eq 1 ]; then
+	    NODENAME="puppet"
+	    [ -z ${MASTERIP} ] && MASTERIP="127.0.0.1" || :
+	fi
+	
+	if [ -z ${DOMAIN} ] || [ -z ${MASTERIP} ] || [ -z ${NODENAME} ]; then
+	    ${ECHO} -e "puppetinstall: Require a domain, host/node name and puppet master ip address."
+	    ${ECHO} -e "puppetinstall: '--help or -h' gives usage information."
+	    exit 1
+	fi
+	
+	# Set the hostname
+	MASTERHOSTNAME="puppet.${DOMAIN}"
+	NODEHOSTNAME="${NODENAME}.${DOMAIN}"
 fi
 
-if [ -z ${DOMAIN} ] || [ -z ${MASTERIP} ] || [ -z ${NODENAME} ]; then
-    ${ECHO} -e "puppetinstall: Require a domain, host/node name and puppet master ip address."
-    ${ECHO} -e "puppetinstall: '--help or -h' gives usage information."
-    exit 1
-fi
-
-# Set the hostname
-MASTERHOSTNAME="puppet.${DOMAIN}"
-NODEHOSTNAME="${NODENAME}.${DOMAIN}"
 
 # Check puppet exist on the system
 check_for_puppet
