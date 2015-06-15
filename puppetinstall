@@ -40,6 +40,7 @@ UNAME=`which uname` && : || (echo "Command 'uname' is not installed."; exit 10;)
 CHOSTNAME=`which hostname` && : || (echo "Command 'hostname' is not installed."; exit 10;)
 
 # Parameters 
+STANDALONE=0
 MASTER=0
 VERBOSE=0
 FORCEYES=0
@@ -62,6 +63,7 @@ function print_usage(){
     ${ECHO} -e ""
     ${ECHO} -e "Commands:"
     ${ECHO} -e "Either long or short options are allowed."
+    ${ECHO} -e "    -a              Install puppet standalone on the system."
     ${ECHO} -e "    -m              Install puppet master on the system."
     ${ECHO} -e "    -n <hostname>   Install puppet agent on the system."
     ${ECHO} -e "                    If you use -m tag with this, -n tag will be ignored."
@@ -262,14 +264,16 @@ function install_on_ubuntu(){
 # Install puppet agent
         print_message "Installing puppet agent ... "
         ${APT} install puppet -y && print_ok || print_error "Failed to install puppet agent."
-        print_message "Configuring puppet agent ... "
-        ${ECHO} -e "DAEMON_OPTS=\"\"" > /etc/default/puppet && : || print_error "Failed to configure puppet agent's '/etc/default/puppet'."
-	${ECHO} -e "START=yes" >> /etc/default/puppet && : || print_error "Failed to configure puppet agent's '/etc/default/puppet'."
-        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
-        print_message "Restarting puppet agent service ... "
-        /etc/init.d/puppet restart && : || print_error "Failed to restart puppet agent."
-	print_message "Enable puppet agent ... "
-	/usr/bin/puppet agent --enable && ${ECHO} -e "Installation completed successfully." || print_error "Failed to enable puppet agent."
+		if [ ${STANDALONE} -eq 0 ]; then
+        	print_message "Configuring puppet agent ... "
+	        ${ECHO} -e "DAEMON_OPTS=\"\"" > /etc/default/puppet && : || print_error "Failed to configure puppet agent's '/etc/default/puppet'."
+			${ECHO} -e "START=yes" >> /etc/default/puppet && : || print_error "Failed to configure puppet agent's '/etc/default/puppet'."
+	        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
+	        print_message "Restarting puppet agent service ... "
+	        /etc/init.d/puppet restart && : || print_error "Failed to restart puppet agent."
+			print_message "Enable puppet agent ... "
+			/usr/bin/puppet agent --enable && ${ECHO} -e "Installation completed successfully." || print_error "Failed to enable puppet agent."
+		fi
     fi
 }
 
@@ -314,10 +318,12 @@ function install_on_redhat(){
 # Install puppet agent
         print_message "Installing puppet agent ... "
         ${YUM} install puppet -y && print_ok || print_error "Failed to install puppet agent."
-        print_message "Configuring puppet agent ... "
-        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
-        print_message "Restarting puppet agent service ... "
-        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+        if [ ${STANDALONE} -eq 0 ]; then
+	        print_message "Configuring puppet agent ... "
+	        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
+	        print_message "Restarting puppet agent service ... "
+	        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+	    fi
     fi
 }
 
@@ -350,16 +356,18 @@ function install_on_sles(){
 # Install puppet agent
         print_message "Installing puppet agent ... "
         ${ZYPPER} install -y puppet && print_ok || print_error "Failed to install puppet agent."
-        print_message "Configuring puppet agent ... "
-        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
-        print_message "Restarting puppet agent service ... "
-        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+        if [ ${STANDALONE} -eq 0 ]; then
+	        print_message "Configuring puppet agent ... "
+	        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
+	        print_message "Restarting puppet agent service ... "
+	        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+	    fi
     fi
 }
 
 
 # Check all input parameters.
-while getopts ":vhmd:n:s:t:y --help" opt; do
+while getopts ":vhmd:a:n:s:t:y --help" opt; do
     case ${opt} in
         h|--help)
             print_usage
@@ -367,6 +375,9 @@ while getopts ":vhmd:n:s:t:y --help" opt; do
             ;;
         v) 
             VERBOSE=1
+            ;;
+        a)
+        	STANDALONE=1    
             ;;
         d)
             DOMAIN=${OPTARG}
