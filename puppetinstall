@@ -292,7 +292,10 @@ function install_on_redhat(){
     print_message "Installing ntpdate ...";
     ${YUM} install -y -q ntpdate
     NTPDATE="ntpdate"
-    ${CP} /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && : || print_error "Failed to reconfigure timezone"
+    cmp -s /usr/share/zoneinfo/${TIMEZONE} /etc/localtime > /dev/null
+	if [ $? -eq 1 ]; then
+    	${CP} /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && : || print_error "Failed to reconfigure timezone"
+    fi
     ${NTPDATE} pool.ntp.org && print_ok || print_error "Failed to synchronize time. "
 
 # Install puppet repository
