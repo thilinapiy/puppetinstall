@@ -289,7 +289,8 @@ function install_on_redhat(){
 
 # Do a time sync
     print_message "Updating system time ... "
-    which ntpdate && : || (echo "Installing ntpdate ..."; ${YUM} install -y -q ntpdate)
+    print_message "Installing ntpdate ...";
+    ${YUM} install -y -q ntpdate
     NTPDATE="ntpdate"
     ${CP} /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && : || print_error "Failed to reconfigure timezone"
     ${NTPDATE} pool.ntp.org && print_ok || print_error "Failed to synchronize time. "
