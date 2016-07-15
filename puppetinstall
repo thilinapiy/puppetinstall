@@ -37,9 +37,10 @@ WGET=`which wget` && : || (echo "Command 'wget' is not installed."; exit 10;)
 DATE=`which date` && : || (echo "Command 'date' is not installed."; exit 10;)
 ECHO=`which echo` && : || (echo "Command 'echo' is not installed."; exit 10;)
 UNAME=`which uname` && : || (echo "Command 'uname' is not installed."; exit 10;)
-HOSTNAME=`which hostname` && : || (echo "Command 'hostname' is not installed."; exit 10;)
+CHOSTNAME=`which hostname` && : || (echo "Command 'hostname' is not installed."; exit 10;)
 
 # Parameters 
+STANDALONE=0
 MASTER=0
 VERBOSE=0
 FORCEYES=0
@@ -62,6 +63,7 @@ function print_usage(){
     ${ECHO} -e ""
     ${ECHO} -e "Commands:"
     ${ECHO} -e "Either long or short options are allowed."
+    ${ECHO} -e "    -a              Install puppet standalone on the system."
     ${ECHO} -e "    -m              Install puppet master on the system."
     ${ECHO} -e "    -n <hostname>   Install puppet agent on the system."
     ${ECHO} -e "                    If you use -m tag with this, -n tag will be ignored."
@@ -201,7 +203,7 @@ function update_host(){
 
 # Update hostname
     print_message "Updating hostname ... "
-    ${HOSTNAME} ${NODEHOSTNAME} && : || print_error "Failed to update hostname. "
+    ${CHOSTNAME} ${NODEHOSTNAME} && : || print_error "Failed to update hostname. "
 }
 
 function install_on_ubuntu(){
@@ -261,12 +263,17 @@ function install_on_ubuntu(){
     else
 # Install puppet agent
         print_message "Installing puppet agent ... "
-        ${APT} install puppet -q=2 -y && print_ok || print_error "Failed to install puppet agent."
-        print_message "Configuring puppet agent ... "
-        ${SED} -i 's/START=no/START=yes/' /etc/default/puppet && : || print_error "Failed to configure puppet agent's '/etc/default/puppet'."
-        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
-        print_message "Restarting puppet agent service ... "
-        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+        ${APT} install puppet -y && print_ok || print_error "Failed to install puppet agent."
+		if [ ${STANDALONE} -eq 0 ]; then
+        	print_message "Configuring puppet agent ... "
+	        ${ECHO} -e "DAEMON_OPTS=\"\"" > /etc/default/puppet && : || print_error "Failed to configure puppet agent's '/etc/default/puppet'."
+			${ECHO} -e "START=yes" >> /etc/default/puppet && : || print_error "Failed to configure puppet agent's '/etc/default/puppet'."
+	        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
+	        print_message "Restarting puppet agent service ... "
+	        /etc/init.d/puppet restart && : || print_error "Failed to restart puppet agent."
+			print_message "Enable puppet agent ... "
+			/usr/bin/puppet agent --enable && ${ECHO} -e "Installation completed successfully." || print_error "Failed to enable puppet agent."
+		fi
     fi
 }
 
@@ -282,9 +289,13 @@ function install_on_redhat(){
 
 # Do a time sync
     print_message "Updating system time ... "
-    which ntpdate && : || (echo "Installing ntpdate ..."; ${YUM} install -y -q ntpdate)
+    print_message "Installing ntpdate ...";
+    ${YUM} install -y -q ntpdate
     NTPDATE="ntpdate"
-    ${CP} /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && : || print_error "Failed to reconfigure timezone"
+    cmp -s /usr/share/zoneinfo/${TIMEZONE} /etc/localtime > /dev/null
+	if [ $? -eq 1 ]; then
+    	${CP} /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && : || print_error "Failed to reconfigure timezone"
+    fi
     ${NTPDATE} pool.ntp.org && print_ok || print_error "Failed to synchronize time. "
 
 # Install puppet repository
@@ -311,10 +322,12 @@ function install_on_redhat(){
 # Install puppet agent
         print_message "Installing puppet agent ... "
         ${YUM} install puppet -y && print_ok || print_error "Failed to install puppet agent."
-        print_message "Configuring puppet agent ... "
-        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
-        print_message "Restarting puppet agent service ... "
-        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+        if [ ${STANDALONE} -eq 0 ]; then
+	        print_message "Configuring puppet agent ... "
+	        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
+	        print_message "Restarting puppet agent service ... "
+	        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+	    fi
     fi
 }
 
@@ -347,16 +360,18 @@ function install_on_sles(){
 # Install puppet agent
         print_message "Installing puppet agent ... "
         ${ZYPPER} install -y puppet && print_ok || print_error "Failed to install puppet agent."
-        print_message "Configuring puppet agent ... "
-        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
-        print_message "Restarting puppet agent service ... "
-        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+        if [ ${STANDALONE} -eq 0 ]; then
+	        print_message "Configuring puppet agent ... "
+	        ${SED} -i "2i server=${MASTERHOSTNAME}" /etc/puppet/puppet.conf && print_ok || print_error "Failed to configure puppet agent's '/etc/puppet/puppet.conf'."
+	        print_message "Restarting puppet agent service ... "
+	        /etc/init.d/puppet restart && ${ECHO} -e "Installation completed successfully." || print_error "Failed to restart puppet agent."
+	    fi
     fi
 }
 
 
 # Check all input parameters.
-while getopts ":vhmd:n:s:t:y --help" opt; do
+while getopts ":vhmd:an:s:t:y --help" opt; do
     case ${opt} in
         h|--help)
             print_usage
@@ -365,11 +380,14 @@ while getopts ":vhmd:n:s:t:y --help" opt; do
         v) 
             VERBOSE=1
             ;;
+        a)
+        	STANDALONE=1    
+            ;;
         d)
             DOMAIN=${OPTARG}
             ;;
         n)
-            NODENAME=${OPTARG}
+            NODENAME="${OPTARG}-${HOSTNAME##*-}"
             ;;
         m)
             MASTER=1
@@ -403,20 +421,24 @@ if [ -z ${TIMEZONE} ]; then
     TIMEZONE="Etc/UTC"
 fi
 
-if [ ${MASTER} -eq 1 ]; then
-    NODENAME="puppet"
-    [ -z ${MASTERIP} ] && MASTERIP="127.0.0.1" || :
+if [ ${STANDALONE} -eq 0 ]; then
+
+	if [ ${MASTER} -eq 1 ]; then
+	    NODENAME="puppet"
+	    [ -z ${MASTERIP} ] && MASTERIP="127.0.0.1" || :
+	fi
+	
+	if [ -z ${DOMAIN} ] || [ -z ${MASTERIP} ] || [ -z ${NODENAME} ]; then
+	    ${ECHO} -e "puppetinstall: Require a domain, host/node name and puppet master ip address."
+	    ${ECHO} -e "puppetinstall: '--help or -h' gives usage information."
+	    exit 1
+	fi
+	
+	# Set the hostname
+	MASTERHOSTNAME="puppet.${DOMAIN}"
+	NODEHOSTNAME="${NODENAME}.${DOMAIN}"
 fi
 
-if [ -z ${DOMAIN} ] || [ -z ${MASTERIP} ] || [ -z ${NODENAME} ]; then
-    ${ECHO} -e "puppetinstall: Require a domain, host/node name and puppet master ip address."
-    ${ECHO} -e "puppetinstall: '--help or -h' gives usage information."
-    exit 1
-fi
-
-# Set the hostname
-MASTERHOSTNAME="puppet.${DOMAIN}"
-NODEHOSTNAME="${NODENAME}.${DOMAIN}"
 
 # Check puppet exist on the system
 check_for_puppet
@@ -426,15 +448,15 @@ get_confirmation
 
 case ${OSDIST} in
     Debian)
-        update_host
+		if [ ${STANDALONE} -eq 0 ]; then update_host; fi
         install_on_ubuntu
         ;;
     RedHat)
-        update_host
+    	if [ ${STANDALONE} -eq 0 ]; then update_host; fi
         install_on_redhat
         ;;
     SUSE)
-        update_host
+    	if [ ${STANDALONE} -eq 0 ]; then update_host; fi
         install_on_sles
         ;;
     Fedora)
